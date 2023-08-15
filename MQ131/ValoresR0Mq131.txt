@@ -1,0 +1,3 @@
+Calibração após 3h e salinha com 5 pessoas: 345k
+Calibração após 4h e salinha com 4 pessoas: 272k
+Calibração após 5h e salinha com 5 pessoas: 419k

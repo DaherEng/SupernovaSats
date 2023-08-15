@@ -1,46 +1,69 @@
-#include <MQ131.h>
 #include <Arduino.h>
+#include <math.h>
+
+#define RL 10     // Resistência ao lado do DOUT_LED
+#define APin 33   // Pino analógico utilizado
+
+float curve[2] = {0.05775, 0.2647};  // Curva do gráfico em log do MQ131 para O3 (a, b)
+// Para 10 - 100 ppm {0.05775, 0.2647}
+// Para 10 - 1000 ppm {0.14516, 0.43952}
+
+float R0 = 0;
+
+float calibracao(){
+  int cont;
+  float val=0;
+  // Calcula o valor de RS no cenário de ar limpo 50 vezes e pega a média
+  for (cont=0;cont<50;cont++) {
+                val += ((float)RL * (4095-analogRead(APin)) / analogRead(APin));
+                delay(500);
+  }
+  val = val/50;                                                                       
+  return val;
+}
+
+float read_PPM()
+{
+  double ADCread=0;
+  double RS, RSR0, Y, X, PPM;
+
+  //5 Leituras e tira a media
+  for (int count=0;count<5;count++) {
+                ADCread += analogRead(APin);
+                delay(50);
+  }
+  ADCread = ADCread/5;
+
+  //Calcula RS
+  RS = (float)RL * (4095-ADCread) / ADCread;
+
+  //Calcula RS/R0
+  RSR0 = RS/R0;
+
+  //Tira o Log de RSR0 para utilizar na curva log-log (Y)
+  Y = log10(RSR0);
+
+  //Calcula o X
+  X = (Y - curve[1])/curve[0];
+
+  //Retorna 10^X = PPM
+  return pow10(X);
+}
 
 void setup() {
-Serial.begin(115200);
-
-// Init the sensor
-// - Heater control on pin 2
-// - Sensor analog read on pin A0
-// - Model HIGH_CONCENTRATION
-// - Load resistance RL of 1MOhms (1000000 Ohms)
-Serial.println("Chegou aqui");
-MQ131.begin(2, 34, HIGH_CONCENTRATION, 10000);
-
-Serial.println("Calibration in progress...");
-
-MQ131.calibrate();
-
-Serial.println("Calibration done!");
-Serial.print("R0 = ");
-Serial.print(MQ131.getR0());
-Serial.println(" Ohms");
-Serial.print("Time to heat = ");
-Serial.print(MQ131.getTimeToRead());
-Serial.println(" s");
+  printf("Calibrando...");
+  pinMode(APin, INPUT);
+  R0 = calibracao();
+  printf("\n\rR0 = %f\n\r", R0);
 }
 
 void loop() {
-Serial.println("Chegou no loop");
-Serial.println("Sampling...");
-MQ131.sample();
-Serial.print("Concentration O3 : ");
-Serial.print(MQ131.getO3(PPM));
-Serial.println(" ppm");
-Serial.print("Concentration O3 : ");
-Serial.print(MQ131.getO3(PPB));
-Serial.println(" ppb");
-Serial.print("Concentration O3 : ");
-Serial.print(MQ131.getO3(MG_M3));
-Serial.println(" mg/m3");
-Serial.print("Concentration O3 : ");
-Serial.print(MQ131.getO3(UG_M3));
-Serial.println(" ug/m3");
 
-delay(5000);
+  float ppm = read_PPM();
+  float valoradc;
+  valoradc = analogRead(APin);
+  printf("\n\rValor ADC = %f", valoradc);
+  printf("\nTaxa de O3 : %f ppm\n\r", ppm);
+  
+  delay(2000);
 }

@@ -1,53 +1,67 @@
 #include <Arduino.h>
-#include <MQ-Sensor-SOLDERED.h>
+#include <math.h>
 
-#define RatioMQ135CleanAir 3.6 // RS / R0 = 3.6 ppm
+#define RL 10     // Resistência ao lado do DOUT_LED
+#define APin 33   // Pino analógico utilizado
 
-// Pino analógico utilizado
-MQ2 mq135(34);
+float curve[2] = {-0.32372, 0.648};  // Curva do gráfico em log do MQ135 para CO2 (a, b)
 
-void setup()
-{
-  Serial.begin(115200);
-// Valores para calibrar para medição de CO2
-mq135.setRegressionMethod(1);
-mq135.setA(36974);
-mq135.setB(-3.109);
+float R0 = 0;
 
-mq135.begin(0x30);
-  Serial.print("Calibrating please wait.");
-
-  float calcR0 = 0;
-    for (int i = 1; i <= 10; i++)
-    {
-      mq135.update();
-        calcR0 +=mq135.calibrate(RatioMQ135CleanAir);
-        Serial.print(".");
-    }
-  mq135.setR0(calcR0 / 10);
-    Serial.println("  done!.");
-
-    if (isinf(calcR0))
-    {
-        Serial.println("Warning: Conection issue founded! Check easyC cable, connector and I2C address!");
-        while (1)
-            ;
-    }
-    if (calcR0 == 0)
-    {
-        Serial.println("Warning: Conection issue founded! Check easyC cable, connector and I2C address!");
-        while (1)
-            ;
-    }
-    /*****************************  MQ Calibration ********************************************/
-
-  mq135.serialDebug(true);
+float calibracao(){
+  int cont;
+  float val=0;
+  // Calcula o valor de RS no cenário de ar limpo 50 vezes e pega a média
+  for (cont=0;cont<50;cont++) {
+                val += ((float)RL * (4095-analogRead(APin)) / analogRead(APin));
+                delay(500);
+  }
+  val = val/50;                                                                                        
+  return val;
 }
 
-void loop()
+float read_PPM()
 {
-  mq135.update();      // Update data, the arduino will be read the voltage on the analog pin
-  mq135.readSensor();  // Sensor will read PPM concentration using the model and a and b values setted before or in the
-  mq135.serialDebug(); // Will print the table on the serial port
-  delay(2000);        // Sampling frequency
+  double ADCread=0;
+  double RS, RSR0, Y, X, PPM;
+
+  //5 Leituras e tira a media
+  for (int count=0;count<5;count++) {
+                ADCread += analogRead(APin);
+                delay(50);
+  }
+  ADCread = ADCread/5;
+
+  //Calcula RS
+  RS = (float)RL * (4095-ADCread) / ADCread;
+
+  //Calcula RS/R0
+  RSR0 = RS/R0;
+
+  //Tira o Log de RSR0 para utilizar na curva log-log (Y)
+  Y = log10(RSR0);
+
+  //Calcula o X
+  X = (Y - curve[1])/curve[0];
+
+  //Retorna 10^X = PPM
+  return pow10(X);
+}
+
+void setup() {
+  printf("Calibrando...");
+  pinMode(APin, INPUT);
+  R0 = calibracao();
+  printf("\n\rR0 = %f\n\r", R0);
+}
+
+void loop() {
+
+  float ppm = read_PPM();
+  float valoradc;
+  valoradc = analogRead(APin);
+  printf("\n\rValor ADC = %f", valoradc);
+  printf("\nTaxa de CO2 : %f ppm\n\r", ppm);
+  
+  delay(2000);
 }

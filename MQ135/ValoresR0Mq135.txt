@@ -1,0 +1,2 @@
+Calibração após 1h esquentando e salinha com 1 pessoa: 92k
+Calibração após 3h e salinha com 5 pessoas: 228k
