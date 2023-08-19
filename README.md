@@ -6,6 +6,6 @@ Sensores Utilizados:<br>
 * MPU-6050<br>
 * BMP280<br>
 * GPS NEO-6M<br>
-* DHT22<br>
+* AHT11<br>
 * Sensor de CO2<br>
 * Sensor de Ozônio<br>
