@@ -57,11 +57,11 @@ void setup() {
 
 void loop() {
 
-  float ppm = read_PPM();
-  float valoradc;
-  valoradc = analogRead(APin);
-  printf("\n\rValor ADC = %f", valoradc);
-  printf("\nTaxa de CO2 : %f ppm\n\r", ppm);
+  float ppm_co2 = read_PPM();
+  float valoradc_co2;
+  valoradc_co2 = analogRead(APin);
+  printf("\n\rValor ADC = %f", valoradc_co2);
+  printf("\nTaxa de CO2 : %f ppm\n\r", ppm_co2);
   
   delay(2000);
 }

@@ -337,7 +337,7 @@ void loop() { //Loop que fica rodando para exibir os dados
   Wire.beginTransmission(MPU);
   Wire.write(0x3B); // Endereço de inicio da solicitação de dados
   Wire.endTransmission(false);
-  Wire.requestFrom(MPU, 14, true); // Solicita 14 bytes de dados a partir do primeiro endereço
+  Wire.requestFrom(MPU, 14, 1); // Solicita 14 bytes de dados a partir do primeiro endereço
   // As variáveis de aceleração, giro e temperatura são de 2 bytes cada (um high e um low, em hexa 0xHL)
 
   // Armazena os dados
