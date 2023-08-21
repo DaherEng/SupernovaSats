@@ -4,9 +4,7 @@
 #define RL 10     // Resistência ao lado do DOUT_LED
 #define APin 33   // Pino analógico utilizado
 
-float curve[2] = {0.05775, 0.2647};  // Curva do gráfico em log do MQ131 para O3 (a, b)
-// Para 10 - 100 ppm {0.05775, 0.2647}
-// Para 10 - 1000 ppm {0.14516, 0.43952}
+float curve[2] = {-0.32372, 0.648};  // Curva do gráfico em log do MQ135 para CO2 (a, b)
 
 float R0 = 0;
 
@@ -18,7 +16,7 @@ float calibracao(){
                 val += ((float)RL * (4095-analogRead(APin)) / analogRead(APin));
                 delay(500);
   }
-  val = val/50;                                                                       
+  val = val/50;                                                                                        
   return val;
 }
 
@@ -63,7 +61,7 @@ void loop() {
   float valoradc;
   valoradc = analogRead(APin);
   printf("\n\rValor ADC = %f", valoradc);
-  printf("\nTaxa de O3 : %f ppm\n\r", ppm);
+  printf("\nTaxa de CO2 : %f ppm\n\r", ppm);
   
   delay(2000);
 }
