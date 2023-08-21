@@ -42,7 +42,7 @@ float R0_co2 = 0;
 #define RL_o3 10     // Resistência ao lado do DOUT_LED
 #define APin_o3 34   // Pino analógico utilizado
 
-float curve_o3[2] = {-0.32372, 0.648};  // Curva do gráfico em log do MQ135 para CO2 (a, b)
+float curve_o3[2] = {0.05775, 0.2647};  // Curva do gráfico em log do MQ135 para CO2 (a, b)
 
 float R0_o3 = 0;
 
