@@ -1,0 +1,3 @@
+- Calibrando o sensor após ele estar ligado 30 minutos para estabilização de temperatura.
+- Medição do R0 no ambiente presente, supondo que ele é o de ar limpo.
+- Próximas vezes a executar o código não é necessário calibrar, somente setar o R0.

@@ -48,7 +48,11 @@ float R0_co2 = 0;
 #define RL_o3 10     // Resistência ao lado do DOUT_LED
 #define APin_o3 34   // Pino analógico utilizado
 
+<<<<<<< HEAD
 float curve_o3[2] = {-0.32372, 0.648};  // Curva do gráfico em log do MQ131 para O3 (a, b)
+=======
+float curve_o3[2] = {0.05775, 0.2647};  // Curva do gráfico em log do MQ135 para CO2 (a, b)
+>>>>>>> c0f69056d2505e010462f49350dedb52e27cee1d
 
 float R0_o3 = 0;
 
@@ -421,7 +425,7 @@ pressao_bmp = bmp.readPressure() / 100.0F; //Lê pressao e converte para HPa
 
   // Adicionar string de tempo
   String timeString = getCurrentTime();
-  
+
    // Converte a jsonStr para const char*
   const char* jsonCStr = jsonString.c_str();
   const char* timeCStr = timeString.c_str();
