@@ -21,6 +21,12 @@
 //Biblioteca acelerômetro
 #include <MPU6050.h> 
 
+//Biblioteca do Cartão SD
+#include <SD.h>
+
+//Biblioteca JSON
+#include <ArduinoJson.h>
+
 #include <SoftwareSerial.h> // Biblioteca Serial
 
 
@@ -42,7 +48,7 @@ float R0_co2 = 0;
 #define RL_o3 10     // Resistência ao lado do DOUT_LED
 #define APin_o3 34   // Pino analógico utilizado
 
-float curve_o3[2] = {-0.32372, 0.648};  // Curva do gráfico em log do MQ135 para CO2 (a, b)
+float curve_o3[2] = {-0.32372, 0.648};  // Curva do gráfico em log do MQ131 para O3 (a, b)
 
 float R0_o3 = 0;
 
@@ -69,7 +75,7 @@ TinyGPSPlus gps; //Declarando o TinyGPS criando objeto
 SoftwareSerial gpsSerial (RXPin, TXPin); // Criando a porta serial "gpsSerial" para falar com o modulo
 
 //Variáveis
-float humidity = 0.0; //variavel global para umidade do AHT10
+float umidade_aht = 0.0; //variavel global para umidade do AHT10
 
 //Variaveis para o sensor de corrente
 float shuntVoltage = 0;
@@ -224,19 +230,31 @@ void displayInfo()
   Serial.println();
   delay(1000);
 }
-  
+
+String getCurrentTime() {
+  unsigned long currentTime = millis(); // Get the current time
+  unsigned long hours = (currentTime / 3600000) % 24, minutes = (currentTime / 60000) % 60, seconds = (currentTime / 1000) % 60;
+  String timeString = String(hours) + ":" + String(minutes) + ":" + String(seconds); // Create the time string
+  return timeString;
+}
+
 void setup() {
   Serial.begin(9600); // Inicia a comunicação Serial na velocidade de 9600 - validar esse BaudRate
   gpsSerial.begin(GPSBaud); //Inincia a comunicacao serial com o GPS
   
+  // Inicialização do cartão SD
+  if (!SD.begin(CS)) {
+    Serial.println("Inicialização do cartão SD falhou!");
+    return;
+  }
 
-//SETUP DO ACELEROMETRO
-// Inicialização do MPU-6050
-  Wire.begin();
-  Wire.beginTransmission(MPU);
-  Wire.write(0x6B);
-  Wire.write(0);
-  Wire.endTransmission(true);
+  //SETUP DO ACELEROMETRO
+  // Inicialização do MPU-6050
+    Wire.begin();
+    Wire.beginTransmission(MPU);
+    Wire.write(0x6B);
+    Wire.write(0);
+    Wire.endTransmission(true);
 
 // Configuração do fundo de escala do giroscópio
 /*
@@ -245,10 +263,10 @@ void setup() {
   Fundo de escala em +/- 1000°/s >> Segundo Wire.write(0x10);
   Fundo de escala em +/- 2000°/s >> Segundo Wire.write(0x18);
 */
-  Wire.beginTransmission(MPU);
-  Wire.write(0x1B);
-  Wire.write(0x18);
-  Wire.endTransmission(true);
+    Wire.beginTransmission(MPU);
+    Wire.write(0x1B);
+    Wire.write(0x18);
+    Wire.endTransmission(true);
 
 // Configuração do fundo de escala do acelerômetro
 /*
@@ -257,10 +275,11 @@ void setup() {
   Fundo de escala em +/- 8G >> Segundo Wire.write(0x10);
   Fundo de escala em +/- 16G >> Segundo Wire.write(0x18);
 */
-  Wire.beginTransmission(MPU);
-  Wire.write(0x1C);
-  Wire.write(0x00);
-  Wire.endTransmission(true);
+    Wire.beginTransmission(MPU);
+    Wire.write(0x1C);
+    Wire.write(0x00);
+    Wire.endTransmission(true);
+
 
 }
 
@@ -278,45 +297,29 @@ void loop() { //Loop que fica rodando para exibir os dados
     Adafruit_Sensor *aht_sensor = aht.getTemperatureSensor();
     sensors_event_t event;
     aht_sensor->getEvent(&event);
-    float temperature = event.temperature;
+    float temperatura_aht = event.temperature;
 
     Adafruit_Sensor *humiditySensor = aht.getHumiditySensor();
     sensors_event_t humidityEvent;
     humiditySensor->getEvent(&humidityEvent);
-    humidity = humidityEvent.relative_humidity;
+    umidade_aht = humidityEvent.relative_humidity;
 
    
-    String data = readBMP280Sensor(); // Lê os dados do sensor e adiciona as informações do AHT10
-    data += "Temp AHT10: ";
-    data += temperature;
-    data += " °C\n";
-    data += "Umid AHT10: ";
-    data += humidity;
-    data += " %\n";
-    
-    Serial.println(data); // Exibe os dados na Serial
-    
+//Leitura do BMP280
+float temperatura_bmp;
+float altitude_bmp;
+float pressao_bmp;
+
+temperatura_bmp = bmp.readTemperature();
+altitude_bmp = bmp.readAltitude(1013.25); // Lê a pressão e calcula a altitude baseado em um parâmetro do nível do mar
+pressao_bmp = bmp.readPressure() / 100.0F; //Lê pressao e converte para HPa
 
 
-// Dados do Sensor de Corrente sendo escritas na Serial
+//Leitura do Sensor de Corrente
   shuntVoltage = ina219.getShuntVoltage_mV();
   busVoltage = ina219.getBusVoltage_V();
   current_mA = ina219.getCurrent_mA();
   loadVoltage = busVoltage + (shuntVoltage / 1000);
-
-  Serial.print("Tensão do barramento: ");
-  Serial.print(busVoltage);
-  Serial.println(" V");
-  
-  Serial.print("Tensão da carga: ");
-  Serial.print(loadVoltage);
-  Serial.println(" V");
-
-  Serial.print("Corrente: ");
-  Serial.print(current_mA);
-  Serial.println(" mA");
-
-    delay(2000); // Aguarda 2 segundos antes de ler os dados novamente
 
 
 //LOOP DO GPS
@@ -329,7 +332,6 @@ void loop() { //Loop que fica rodando para exibir os dados
   if (millis() > 5000 && gps.charsProcessed() < 10)
   {
     Serial.println(" Sinal GPS nao detectado ");
-  while (true);
   }
 
 
@@ -349,7 +351,7 @@ void loop() { //Loop que fica rodando para exibir os dados
   GirY = Wire.read() << 8 | Wire.read(); // Lê os bytes 45 e 46 e os coloca na mesma variável
   GirZ = Wire.read() << 8 | Wire.read(); // Lê os bytes 47 e 48 e os coloca na mesma variável
 
-  // Escreve na serial as variaveis
+  // Calcula o valor ajustado das variáveis
 /*
   É necessário alterar os valores da divisão conforme o fundo de escala utilizando o #define FSA e FSG!
 
@@ -365,31 +367,75 @@ void loop() { //Loop que fica rodando para exibir os dados
   +/- 1000°/s >> 32.8
   +/- 2000°/s >> 16.4
 */
-  Serial.print("Aceleracao: ");
-  Serial.print(AccX /FSA);
-  Serial.print(" ");
-  Serial.print(AccY /FSA);
-  Serial.print(" ");
-  Serial.print(AccZ /FSA);
-  Serial.print("\nGiro: ");
-  Serial.print(GirX /FSG);
-  Serial.print(" ");
-  Serial.print(GirY /FSG);
-  Serial.print(" ");
-  Serial.print(GirZ /FSG);
-  Serial.print("\n");
+
+  AccX= AccX/FSA;
+  AccY= AccY/FSA;
+  AccZ= AccZ/FSA;
+
+  GirX= GirX/FSG;
+  GirY= GirY/FSG;
+  GirZ= GirZ/FSG;
 
   // Leitura do sensor de CO2
   float ppm_co2 = read_PPM_co2();
   float valoradc_co2;
   valoradc_co2 = analogRead(APin_co2);
-  printf("\n\rValor ADC = %f", valoradc_co2);
-  printf("\nTaxa de CO2 : %f ppm\n\r", ppm_co2);
 
  // Leitura do sensor de O3
   float ppm_o3 = read_PPM_o3();
   float valoradc_o3;
   valoradc_o3 = analogRead(APin_o3);
-  printf("\n\rValor ADC = %f", valoradc_o3);
-  printf("\nTaxa de CO2 : %f ppm\n\r", ppm_o3);
+
+  StaticJsonDocument<320> jsonBuffer; //Cada par de valores utiliza aproximadamente 16 bytes
+                                      //Cada par nome-vetor utiliza aproximadamente 16*(1+N) bytes, em que N é o comprimento do vetor 
+  //Criando um objeto JsonObject para armazenar os valores dos sensores
+  JsonObject sensores = jsonBuffer.to<JsonObject>();
+
+  //Adicionando os valores dos sensores ao JsonObject
+  sensores["equipe"] = 5242;
+  sensores["temperatura"][0] = temperatura_bmp;
+  sensores["temperatura"][1] = temperatura_aht;
+  sensores["pressao"] = pressao_bmp;
+  sensores["altitude"] = altitude_bmp;
+  sensores["umidade"] = umidade_aht;
+  sensores["giroscopio"][0] = GirX;
+  sensores["giroscopio"][1] = GirY;
+  sensores["giroscopio"][2] = GirZ;
+  sensores["acelerometro"][0] = AccX;
+  sensores["acelerometro"][1] = AccY;
+  sensores["acelerometro"][2] = AccZ;
+  sensores["payload"][0] = valoradc_co2;
+  sensores["payload"][1] = ppm_co2;
+  sensores["payload"][2] = valoradc_o3;
+  sensores["payload"][3] = ppm_o3;
+  sensores["tensao_barramento"] = busVoltage;
+  sensores["tensao_carga"] = loadVoltage;
+  sensores["corrente"] = current_mA;
+
+  //Convertendo o JsonDocument em uma string JSON
+  String jsonString;
+  serializeJson(jsonBuffer, jsonString);
+
+  // Imprimindo a string JSON no monitor serial
+  Serial.println(jsonString);
+
+  // Adicionar string de tempo
+  String timeString = getCurrentTime();
+  
+   // Converte a jsonStr para const char*
+  const char* jsonCStr = jsonString.c_str();
+  const char* timeCStr = timeString.c_str();
+  // adiciona a string JSON ao arquivo
+
+  // Abre arquivo no cartão no formato de lista
+  File dataFile = SD.open("/data.json", FILE_APPEND);
+
+  // Adiciona uma string JSON ao cartão SD
+  if (dataFile) {
+    dataFile.println(timeCStr);
+    dataFile.println(jsonCStr);
+    dataFile.close();
+  } else {
+    Serial.println("Erro ao abrir arquivo para adicionar JSON!");
+  }
 }
